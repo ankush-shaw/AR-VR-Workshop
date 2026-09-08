@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
@@ -41,10 +41,11 @@ AFRAME.registerComponent('hover-info',{schema:{title:{type:'string',default:''},
 AFRAME.registerComponent('pulse-light',{schema:{speed:{type:'number',default:1.5},min:{type:'number',default:.4},max:{type:'number',default:1.2}},init:function(){this.t=Math.random()*6.28},tick:function(t,dt){var d=this.data;this.t+=(dt/1000)*d.speed;this.el.setAttribute('light','intensity',d.min+(d.max-d.min)*(.5+.5*Math.sin(this.t)))}});
 AFRAME.registerComponent('float-anim',{schema:{speed:{type:'number',default:1},amplitude:{type:'number',default:.05}},init:function(){this.t=Math.random()*6.28;this.baseY=this.el.object3D.position.y},tick:function(t,dt){this.t+=(dt/1000)*this.data.speed;this.el.object3D.position.y=this.baseY+Math.sin(this.t)*this.data.amplitude}});
 AFRAME.registerComponent('spin-slow',{schema:{speed:{type:'number',default:20}},tick:function(t,dt){this.el.object3D.rotation.y+=(dt/1000)*(this.data.speed*Math.PI/180)}});
-AFRAME.registerComponent('teleport-controls-custom',{init:function(){var self=this;this.el.addEventListener('triggerdown',function(){var rc=self.el.components.raycaster;if(!rc||!rc.intersections||!rc.intersections.length)return;var pt=rc.intersections[0].point;var rig=document.getElementById('rig');if(rig)rig.object3D.position.set(pt.x,rig.object3D.position.y,pt.z)});this.el.addEventListener('bbuttondown',function(){if(isPlaying)stopAudio();else startAudio()})}});
-var _it=null;
-function showInfo(t,b){var el=document.getElementById('infoPopup');el.innerHTML='<strong>'+t+'</strong>'+(b?'<br>'+b:'');el.classList.add('show');clearTimeout(_it);_it=setTimeout(function(){el.classList.remove('show')},5000)}
-function hideInfo(){clearTimeout(_it);_it=setTimeout(function(){document.getElementById('infoPopup').classList.remove('show')},3000)}
+AFRAME.registerComponent('vr-locomotion',{schema:{speed:{type:'number',default:5.0},snapAngle:{type:'number',default:45},deadzone:{type:'number',default:0.18}},init:function(){this.canSnap=true;this.cameraEl=this.el.querySelector('[camera]')||this.el.querySelector('a-camera');this.camDir=new THREE.Vector3();this.camRight=new THREE.Vector3();this.yAxis=new THREE.Vector3(0,1,0)},tick:function(t,dt){if(!dt||dt>100)return;var deltaSec=dt/1000;var gamepads=navigator.getGamepads?navigator.getGamepads():null;if(!gamepads)return;var moveX=0,moveZ=0,turnX=0;for(var i=0;i<gamepads.length;i++){var gp=gamepads[i];if(!gp||!gp.connected||!gp.axes||gp.axes.length<2)continue;var axes=gp.axes;var sx=0,sy=0;if(axes.length>=4){sx=Math.abs(axes[2])>this.data.deadzone?axes[2]:(Math.abs(axes[0])>this.data.deadzone?axes[0]:0);sy=Math.abs(axes[3])>this.data.deadzone?axes[3]:(Math.abs(axes[1])>this.data.deadzone?axes[1]:0)}else{sx=Math.abs(axes[0])>this.data.deadzone?axes[0]:0;sy=Math.abs(axes[1])>this.data.deadzone?axes[1]:0}if(gp.hand==='left'){moveX=sx;moveZ=sy}else if(gp.hand==='right'){turnX=sx}else{if(i===0){moveX=sx;moveZ=sy}else if(i===1){turnX=sx}}}if(Math.abs(turnX)>0.55){if(this.canSnap){var angle=turnX>0?-this.data.snapAngle:this.data.snapAngle;this.el.object3D.rotation.y+=THREE.MathUtils.degToRad(angle);this.canSnap=false}}else if(Math.abs(turnX)<0.25){this.canSnap=true}if(Math.abs(moveX)>this.data.deadzone||Math.abs(moveZ)>this.data.deadzone){var camObj=this.cameraEl?this.cameraEl.object3D:this.el.object3D;camObj.getWorldDirection(this.camDir);this.camDir.y=0;this.camDir.normalize();this.camRight.crossVectors(this.camDir,this.yAxis).normalize();var fwd=-moveZ*this.data.speed*deltaSec;var strafe=moveX*this.data.speed*deltaSec;var pos=this.el.object3D.position;pos.x+=(this.camDir.x*fwd)+(this.camRight.x*strafe);pos.z+=(this.camDir.z*fwd)+(this.camRight.z*strafe);pos.x=Math.max(-45,Math.min(45,pos.x));pos.z=Math.max(-25,Math.min(90,pos.z))}}});
+AFRAME.registerComponent('teleport-controls-custom',{init:function(){var self=this;this.el.addEventListener('triggerdown',function(){var rc=self.el.components.raycaster;if(!rc||!rc.intersections||!rc.intersections.length)return;var hit=rc.intersections[0];var targetEl=hit.object?hit.object.el:null;if(targetEl&&targetEl.classList.contains('teleportable')){var rig=document.getElementById('rig');if(rig){rig.object3D.position.x=hit.point.x;rig.object3D.position.z=hit.point.z}}else if(targetEl&&targetEl.classList.contains('clickable')){targetEl.emit('click')}});function onBtn(){if(isPlaying)stopAudio();else startAudio()}this.el.addEventListener('bbuttondown',onBtn);this.el.addEventListener('ybuttondown',onBtn);this.el.addEventListener('xbuttondown',onBtn);this.el.addEventListener('abuttondown',onBtn)}});
+var _it=null,_vrIt=null;
+function showInfo(t,b){var el=document.getElementById('infoPopup');if(el){el.innerHTML='<strong>'+t+'</strong>'+(b?'<br>'+b:'');el.classList.add('show');clearTimeout(_it);_it=setTimeout(function(){el.classList.remove('show')},5000)}var vrCard=document.getElementById('vr-info-card');var vrT=document.getElementById('vr-info-title');var vrB=document.getElementById('vr-info-body');if(vrCard&&vrT&&vrB){var cleanT=(t||'').replace(/<[^>]*>/g,'');var cleanB=(b||'').replace(/<[^>]*>/g,'');vrT.setAttribute('value',cleanT);vrB.setAttribute('value',cleanB);vrCard.setAttribute('visible',true);clearTimeout(_vrIt);_vrIt=setTimeout(function(){vrCard.setAttribute('visible',false)},5000)}}
+function hideInfo(){clearTimeout(_it);_it=setTimeout(function(){var el=document.getElementById('infoPopup');if(el)el.classList.remove('show')},3000)}
 </script>
 <a-scene id="scene" vr-mode-ui="enabled:true" renderer="antialias: false" fog="type:exponential;color:#150505;density:.011">
 <a-assets timeout="3000"></a-assets>
@@ -425,20 +426,26 @@ function hideInfo(){clearTimeout(_it);_it=setTimeout(function(){document.getElem
 <a-entity position="-19 0 22"><a-cylinder radius=".22" height="4" position="0 2 0" material="color:#3a2000;roughness:.9" segments-radial="5"></a-cylinder><a-sphere position="0 5 0" radius="2" material="color:#224a00;roughness:.9" segments-width="6" segments-height="5"></a-sphere></a-entity>
 
 <!-- CAMERA RIG + VR CONTROLLERS -->
-<a-entity id="rig" position="0 0 52">
- <a-camera id="camera" look-controls="pointerLockEnabled:false" wasd-controls="acceleration:28;fly:false" position="0 1.6 0">
-  <!-- VR HUD -->
-  <a-entity id="vr-hud" position="0 -.5 -1.6" visible="false">
-   <a-plane width="1.4" height=".7" material="color:#000;opacity:.78;transparent:true"></a-plane>
-   <a-text value="&#x1F3AE; VR Controls\nLeft Stick: Move\nRight Trigger: Teleport\nLeft B: Toggle Music\nHeadset: Look Around" color="#ffd700" position="0 0 .01" align="center" width="1.25" wrap-count="26" line-height="44"></a-text>
+<a-entity id="rig" position="0 0 52" vr-locomotion="speed: 5.5; snapAngle: 45">
+ <a-camera id="camera" look-controls="pointerLockEnabled:false" wasd-controls="acceleration:30;fly:false" position="0 1.6 0">
+  <!-- VR Welcome HUD -->
+  <a-entity id="vr-hud" position="0 -.35 -1.5" visible="false">
+   <a-plane width="1.6" height=".75" material="color:#000;opacity:.85;transparent:true"></a-plane>
+   <a-text value="&#x1F3AE; VR Controls\nLeft Stick: Smooth Walk (Forward / Strafe)\nRight Stick: Snap Turn (Left / Right)\nTriggers: Click Objects & Teleport Ground\nButtons (A/B/X/Y): Toggle Festival Music" color="#ffd700" position="0 0 .01" align="center" width="1.4" wrap-count="30" line-height="40"></a-text>
+  </a-entity>
+  <!-- VR Interactive Info Card -->
+  <a-entity id="vr-info-card" position="0 .45 -1.5" visible="false">
+   <a-plane width="1.7" height=".6" material="color:#1a0500;opacity:.88;transparent:true"></a-plane>
+   <a-text id="vr-info-title" value="" color="#ffd700" position="0 .14 .01" align="center" width="1.5" wrap-count="24"></a-text>
+   <a-text id="vr-info-body" value="" color="#ffffff" position="0 -.1 .01" align="center" width="1.5" wrap-count="32" line-height="40"></a-text>
   </a-entity>
   <!-- Desktop cursor -->
   <a-cursor id="cursor" fuse="false" raycaster="far:25;objects:.clickable" material="color:#ffd700;opacity:.75"></a-cursor>
  </a-camera>
- <!-- Left hand: move + teleport -->
- <a-entity id="leftHand" laser-controls="hand:left" raycaster="objects:.clickable,.teleportable;far:22;lineColor:#f39c12;lineOpacity:.6" teleport-controls-custom></a-entity>
- <!-- Right hand: interact -->
- <a-entity id="rightHand" laser-controls="hand:right" raycaster="objects:.clickable;far:22;lineColor:#ffd700;lineOpacity:.8"></a-entity>
+ <!-- Left hand: move + teleport + interact -->
+ <a-entity id="leftHand" oculus-touch-controls="hand:left" laser-controls="hand:left" raycaster="objects:.clickable,.teleportable;far:25;lineColor:#f39c12;lineOpacity:.7" teleport-controls-custom></a-entity>
+ <!-- Right hand: snap turn + interact + teleport -->
+ <a-entity id="rightHand" oculus-touch-controls="hand:right" laser-controls="hand:right" raycaster="objects:.clickable,.teleportable;far:25;lineColor:#ffd700;lineOpacity:.8" teleport-controls-custom></a-entity>
 </a-entity>
 
 </a-scene>
@@ -485,7 +492,7 @@ document.getElementById('startBtn').addEventListener('click',function(){
   setTimeout(function(){ov.style.display='none'},800);
   document.getElementById('audioToggle').style.display='block';
   startAudio();
-  showInfo('&#x1F64F; &#x09B8;&#x09CD;&#x09AC;&#x09BE;&#x0997;&#x09A4;&#x09AE;! Welcome to Durga Puja VR','WASD to walk &middot; Mouse to look &middot; Click objects to interact &middot; Enter VR for full immersion!');
+  showInfo('&#x1F64F; &#x09B8;&#x09CD;&#x09AC;&#x09BE;&#x0997;&#x09A4;&#x09AE;! Welcome to Durga Puja VR','WASD / Left Stick to walk &middot; Right Stick to turn &middot; Point & Click to interact &middot; Enjoy the festival!');
 });
 
 /* ── AUDIO TOGGLE ── */
@@ -496,8 +503,24 @@ document.getElementById('audioToggle').addEventListener('click',function(){
 
 /* ── VR EVENTS ── */
 var sc=document.getElementById('scene');
-sc.addEventListener('enter-vr',function(){document.getElementById('vr-hud').setAttribute('visible',true);document.getElementById('audioToggle').style.display='none';startAudio()});
-sc.addEventListener('exit-vr',function(){document.getElementById('vr-hud').setAttribute('visible',false);document.getElementById('audioToggle').style.display='block'});
+sc.addEventListener('enter-vr',function(){
+  var vhud=document.getElementById('vr-hud');
+  if(vhud){
+    vhud.setAttribute('visible',true);
+    setTimeout(function(){if(vhud)vhud.setAttribute('visible',false)},8000);
+  }
+  var cur=document.getElementById('cursor');
+  if(cur)cur.setAttribute('visible',false);
+  document.getElementById('audioToggle').style.display='none';
+  startAudio();
+});
+sc.addEventListener('exit-vr',function(){
+  var vhud=document.getElementById('vr-hud');
+  if(vhud)vhud.setAttribute('visible',false);
+  var cur=document.getElementById('cursor');
+  if(cur)cur.setAttribute('visible',true);
+  document.getElementById('audioToggle').style.display='block';
+});
 
 /* ── DHAK CLICK ── */
 document.getElementById('dhak-area').addEventListener('click',function(){
