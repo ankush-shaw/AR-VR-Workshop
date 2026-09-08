@@ -1,134 +1,544 @@
-<!DOCTYPE html>
-<html>
-  <head>
-    <meta charset="utf-8">
-    <title>VR Workshop — Interactive Scene</title>
-    <meta name="description" content="A-Frame VR Workshop Demo — Meta Quest 3s">
-    <script src="https://aframe.io/releases/1.7.1/aframe.min.js"></script>
-  </head>
-  <body>
-    <a-scene>
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Durga Puja VR — Shubho Bijoya</title>
+<meta name="description" content="Immersive virtual Durga Puja VR in Kolkata built with A-Frame WebXR."/>
+<script src="https://cdn.jsdelivr.net/npm/aframe@1.4.2/dist/aframe.min.js"
+  onerror="document.write('<script src=\042https://unpkg.com/aframe@1.4.2/dist/aframe.min.js\042><\/sc'+'ript>')">
+</script>
+<style>
+#overlay{position:fixed;inset:0;z-index:9999;background:radial-gradient(ellipse at center,#1a0a00,#0d0005 60%,#000);display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:'Segoe UI',sans-serif;color:#fff;text-align:center;padding:2rem}
+#overlay h1{font-size:clamp(2rem,6vw,4rem);margin:0 0 .3rem;background:linear-gradient(135deg,#ff9d00,#ffd700,#ff6b35);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;filter:drop-shadow(0 0 20px rgba(255,160,0,.6))}
+.sub{font-size:clamp(1rem,3vw,1.4rem);color:#ffcc88;margin-bottom:1rem}
+.desc{max-width:500px;color:#ccc;font-size:.9rem;line-height:1.6;margin-bottom:1.8rem}
+#startBtn{background:linear-gradient(135deg,#c8500a,#e8840a,#f5a623);border:none;color:#fff;font-size:1.2rem;font-weight:700;padding:.9rem 2.8rem;border-radius:50px;cursor:pointer;box-shadow:0 0 30px rgba(255,140,0,.5),0 4px 20px rgba(0,0,0,.5);transition:transform .2s,box-shadow .2s;letter-spacing:1px}
+#startBtn:hover{transform:scale(1.05);box-shadow:0 0 50px rgba(255,160,0,.7)}
+.diya{font-size:2rem;margin-bottom:.8rem;letter-spacing:.4rem}
+.hint{margin-top:1.4rem;color:#aaa;font-size:.82rem;line-height:1.8}
+.hint strong{color:#ffcc88}
+#audioToggle{position:fixed;bottom:80px;right:20px;z-index:1000;background:rgba(200,80,10,.85);border:2px solid #f5a623;color:#fff;font-size:.95rem;padding:.5rem 1.1rem;border-radius:30px;cursor:pointer;display:none;box-shadow:0 0 20px rgba(255,140,0,.4)}
+#infoPopup{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:1000;background:rgba(0,0,0,.85);border:1px solid #f5a623;color:#ffcc88;font-size:.95rem;padding:.7rem 1.8rem;border-radius:12px;text-align:center;pointer-events:none;opacity:0;transition:opacity .4s;max-width:90vw}
+#infoPopup.show{opacity:1}
+body,html{margin:0;padding:0;overflow:hidden;width:100%;height:100%}
+canvas{display:block}
+</style>
+</head>
+<body>
+<div id="overlay">
+  <div class="diya">&#x1FA94; &#x1FA94; &#x1FA94; &#x1FA94; &#x1FA94;</div>
+  <h1>&#x09B6;&#x09CD;&#x09B0;&#x09C0; &#x09B6;&#x09CD;&#x09B0;&#x09C0; &#x09A6;&#x09C1;&#x09B0;&#x09CD;&#x0997;&#x09BE;&#x09AA;&#x09C2;&#x099C;&#x09BE;</h1>
+  <div class="sub">Shubho Bijoya &#x2014; Virtual Kolkata Puja Mela</div>
+  <div class="desc">Step into a vibrant virtual Durga Puja celebration. Explore the grand pandal, witness Maa Durga, stroll through the festive mela, and soak in Kolkata's greatest festival.</div>
+  <button id="startBtn">&#x1F6D5; Enter Puja &#x2014; &#x0986;&#x09A8;&#x09A8;&#x09CD;&#x09A6;&#x09C7; &#x09AF;&#x09CB;&#x0997; &#x09A6;&#x09BF;&#x09A8;</button>
+  <div class="hint"><strong>Desktop:</strong> WASD move &middot; Mouse look &middot; Click to interact<br/><strong>VR (Quest 3S):</strong> Left stick=Move &middot; Right trigger=Teleport &middot; L-B=Music</div>
+</div>
+<button id="audioToggle">&#x1F3B5; Toggle Music</button>
+<div id="infoPopup"></div>
+<script>
+AFRAME.registerComponent('hover-info',{schema:{title:{type:'string',default:''},body:{type:'string',default:''}},init:function(){var el=this.el,d=this.data;el.addEventListener('click',function(){showInfo(d.title,d.body)});el.addEventListener('raycaster-intersected',function(){showInfo(d.title,d.body)});el.addEventListener('raycaster-intersected-cleared',function(){hideInfo()});el.addEventListener('mouseenter',function(){showInfo(d.title,d.body)});el.addEventListener('mouseleave',function(){hideInfo()})}});
+AFRAME.registerComponent('pulse-light',{schema:{speed:{type:'number',default:1.5},min:{type:'number',default:.4},max:{type:'number',default:1.2}},init:function(){this.t=Math.random()*6.28},tick:function(t,dt){var d=this.data;this.t+=(dt/1000)*d.speed;this.el.setAttribute('light','intensity',d.min+(d.max-d.min)*(.5+.5*Math.sin(this.t)))}});
+AFRAME.registerComponent('float-anim',{schema:{speed:{type:'number',default:1},amplitude:{type:'number',default:.05}},init:function(){this.t=Math.random()*6.28;this.baseY=this.el.object3D.position.y},tick:function(t,dt){this.t+=(dt/1000)*this.data.speed;this.el.object3D.position.y=this.baseY+Math.sin(this.t)*this.data.amplitude}});
+AFRAME.registerComponent('spin-slow',{schema:{speed:{type:'number',default:20}},tick:function(t,dt){this.el.object3D.rotation.y+=(dt/1000)*(this.data.speed*Math.PI/180)}});
+AFRAME.registerComponent('teleport-controls-custom',{init:function(){var self=this;this.el.addEventListener('triggerdown',function(){var rc=self.el.components.raycaster;if(!rc||!rc.intersections||!rc.intersections.length)return;var pt=rc.intersections[0].point;var rig=document.getElementById('rig');if(rig)rig.object3D.position.set(pt.x,rig.object3D.position.y,pt.z)});this.el.addEventListener('bbuttondown',function(){if(isPlaying)stopAudio();else startAudio()})}});
+var _it=null;
+function showInfo(t,b){var el=document.getElementById('infoPopup');el.innerHTML='<strong>'+t+'</strong>'+(b?'<br>'+b:'');el.classList.add('show');clearTimeout(_it);_it=setTimeout(function(){el.classList.remove('show')},5000)}
+function hideInfo(){clearTimeout(_it);_it=setTimeout(function(){document.getElementById('infoPopup').classList.remove('show')},3000)}
+</script>
+<a-scene id="scene" vr-mode-ui="enabled:true" renderer="antialias: false" fog="type:exponential;color:#150505;density:.011">
+<a-assets timeout="3000"></a-assets>
+<!-- SKY & GROUND -->
+<a-sky color="#07000f"></a-sky>
+<a-plane id="ground" class="teleportable" rotation="-90 0 0" width="200" height="200" material="color:#1a1208;roughness:.95"></a-plane>
+<a-plane rotation="-90 0 0" position="0 .01 10" width="12" height="90" material="color:#1e1a14;roughness:.9"></a-plane>
+<a-plane rotation="-90 0 0" position="0 .01 0" width="70" height="12" material="color:#1e1a14;roughness:.9"></a-plane>
+<a-plane rotation="-90 0 0" position=" 7 .015 10" width="2" height="90" material="color:#28231a;roughness:.9"></a-plane>
+<a-plane rotation="-90 0 0" position="-7 .015 10" width="2" height="90" material="color:#28231a;roughness:.9"></a-plane>
+<a-light type="ambient" color="#3d1800" intensity=".55"></a-light>
+<a-light type="directional" color="#1a2a88" intensity=".25" position="-10 30 -20"></a-light>
+<!-- ENTRANCE ARCH z=32 -->
+<a-entity id="entrance-arch" position="0 0 32">
+ <a-box position="-5.5 3.5 0" width="1.1" height="7" depth="1.1" material="color:#8b1a1a;roughness:.5"></a-box>
+ <a-box position=" 5.5 3.5 0" width="1.1" height="7" depth="1.1" material="color:#8b1a1a;roughness:.5"></a-box>
+ <a-box position="0 7.2 0" width="13" height=".9" depth=".9" material="color:#c0392b;roughness:.4;metalness:.1"></a-box>
+ <a-torus position="0 7.2 0" radius="3.2" radius-tubular=".4" theta-length="180" rotation="0 0 90" material="color:#e74c3c;roughness:.3;metalness:.2" segments-radial="12"></a-torus>
+ <a-entity position="0 8.8 0">
+  <a-box width="8.5" height="1.4" depth=".25" material="color:#1a0505;roughness:.4"></a-box>
+  <a-box width="9.1" height="2" depth=".1" position="0 0 -.1" material="color:#9b2828;roughness:.3;metalness:.3"></a-box>
+  <a-text value="&#x09B6;&#x09C1;&#x09AD; &#x09AC;&#x09BF;&#x099C;&#x09AF;&#x09BC;&#x09BE;" color="#ffd700" position="0 0 .15" align="center" width="7.5"></a-text>
+ </a-entity>
+ <a-torus position="-5.5 2 0" radius=".9" radius-tubular=".14" material="color:#f39c12;roughness:.9" segments-radial="8"></a-torus>
+ <a-torus position="-5.5 5 0" radius=".9" radius-tubular=".14" material="color:#e67e22;roughness:.9" segments-radial="8"></a-torus>
+ <a-torus position=" 5.5 2 0" radius=".9" radius-tubular=".14" material="color:#f39c12;roughness:.9" segments-radial="8"></a-torus>
+ <a-torus position=" 5.5 5 0" radius=".9" radius-tubular=".14" material="color:#e67e22;roughness:.9" segments-radial="8"></a-torus>
+ <a-sphere position="-4 7.4 .6" radius=".1" material="color:#ffff00;emissive:#ffff00;emissiveIntensity:2.5"></a-sphere>
+ <a-sphere position="-2 7.8 .6" radius=".1" material="color:#ff8800;emissive:#ff8800;emissiveIntensity:2.5"></a-sphere>
+ <a-sphere position=" 0 8.0 .6" radius=".1" material="color:#ff4444;emissive:#ff4444;emissiveIntensity:2.5"></a-sphere>
+ <a-sphere position=" 2 7.8 .6" radius=".1" material="color:#ff8800;emissive:#ff8800;emissiveIntensity:2.5"></a-sphere>
+ <a-sphere position=" 4 7.4 .6" radius=".1" material="color:#ffff00;emissive:#ffff00;emissiveIntensity:2.5"></a-sphere>
+ <a-light type="point" color="#ff8800" intensity="2.5" distance="14" position="0 6 1" pulse-light="speed:.7;min:1.5;max:3"></a-light>
+ <a-box position="0 3.5 0" width="11" height="7" depth="2" visible="false" class="clickable" hover-info="title:&#x1F6D5; Pandal Entrance;body:&#x09B6;&#x09C1;&#x09AD; &#x09AC;&#x09BF;&#x099C;&#x09AF;&#x09BC;&#x09BE; &#x2014; Walk forward to enter the festival!"></a-box>
+</a-entity>
+<!-- MAIN PANDAL z=0 -->
+<a-entity id="main-pandal" position="0 0 0">
+ <a-plane rotation="-90 0 0" position="0 .02 0" width="24" height="24" material="color:#2d1a00;roughness:.7"></a-plane>
+ <a-torus rotation="-90 0 0" position="0 .03 0" radius="4" radius-tubular=".07" material="color:#ff6b35;opacity:.65;transparent:true" segments-radial="12"></a-torus>
+ <a-torus rotation="-90 0 0" position="0 .04 0" radius="2.8" radius-tubular=".07" material="color:#ffd700;opacity:.6;transparent:true" segments-radial="12"></a-torus>
+ <a-torus rotation="-90 0 0" position="0 .05 0" radius="1.6" radius-tubular=".07" material="color:#ff6b35;opacity:.5;transparent:true" segments-radial="12"></a-torus>
+ <a-box position=" 0  5.5 -11" width="24" height="11" depth=".4" material="color:#6b1a1a;roughness:.6"></a-box>
+ <a-box position="-12 5.5  0" width=".4" height="11" depth="22" material="color:#7a1e1e;roughness:.6"></a-box>
+ <a-box position=" 12 5.5  0" width=".4" height="11" depth="22" material="color:#7a1e1e;roughness:.6"></a-box>
+ <a-box position="0 11.2 0" width="24" height=".5" depth="22.5" material="color:#8b0000;roughness:.5;metalness:.1"></a-box>
+ <a-cone position="0 12.8 -3" radius-bottom="7" radius-top=".6" height="2.5" segments-radial="8" material="color:#c0392b;roughness:.4;metalness:.1" rotation="0 22.5 0"></a-cone>
+ <a-cone position="-5.5 12.2 -3" radius-bottom="4" radius-top=".3" height="1.8" segments-radial="8" material="color:#e74c3c;roughness:.4"></a-cone>
+ <a-cone position=" 5.5 12.2 -3" radius-bottom="4" radius-top=".3" height="1.8" segments-radial="8" material="color:#e74c3c;roughness:.4"></a-cone>
+ <a-sphere position="0 14 -3" radius=".5" material="color:#ffd700;metalness:.85;roughness:.05;emissive:#ffaa00;emissiveIntensity:.6"></a-sphere>
+ <!-- PILLARS -->
+ <a-cylinder position="-9 5.5 11" radius=".55" height="11" segments-radial="8" material="color:#c0392b;roughness:.4;metalness:.15"></a-cylinder>
+ <a-cylinder position=" 9 5.5 11" radius=".55" height="11" segments-radial="8" material="color:#c0392b;roughness:.4;metalness:.15"></a-cylinder>
+ <a-box position="-9 11.5 11" width="1.6" height=".9" depth="1.6" material="color:#e74c3c;roughness:.3;metalness:.2"></a-box>
+ <a-box position=" 9 11.5 11" width="1.6" height=".9" depth="1.6" material="color:#e74c3c;roughness:.3;metalness:.2"></a-box>
+ <a-cylinder position="-9 5.5  2" radius=".5" height="11" segments-radial="8" material="color:#c0392b;roughness:.4;metalness:.15"></a-cylinder>
+ <a-cylinder position=" 9 5.5  2" radius=".5" height="11" segments-radial="8" material="color:#c0392b;roughness:.4;metalness:.15"></a-cylinder>
+ <a-cylinder position="-9 5.5 -8" radius=".5" height="11" segments-radial="8" material="color:#9b2828;roughness:.4"></a-cylinder>
+ <a-cylinder position=" 9 5.5 -8" radius=".5" height="11" segments-radial="8" material="color:#9b2828;roughness:.4"></a-cylinder>
+ <a-torus position="-9 3 11" radius=".9" radius-tubular=".14" material="color:#f39c12;roughness:.9" segments-radial="8"></a-torus>
+ <a-torus position="-9 7 11" radius=".9" radius-tubular=".14" material="color:#e67e22;roughness:.9" segments-radial="8"></a-torus>
+ <a-torus position=" 9 3 11" radius=".9" radius-tubular=".14" material="color:#f39c12;roughness:.9" segments-radial="8"></a-torus>
+ <a-torus position=" 9 7 11" radius=".9" radius-tubular=".14" material="color:#e67e22;roughness:.9" segments-radial="8"></a-torus>
+ <a-torus position="0 7 11.2" radius="5" radius-tubular=".55" theta-length="180" rotation="0 0 0" material="color:#e74c3c;roughness:.3;metalness:.2;emissive:#4a0000;emissiveIntensity:.25" segments-radial="10"></a-torus>
+ <!-- SIGNBOARD -->
+ <a-entity position="0 9.5 11.8">
+  <a-box width="11" height="1.6" depth=".3" material="color:#1a0000;roughness:.4;metalness:.2"></a-box>
+  <a-box width="11.6" height="2.2" depth=".15" position="0 0 -.1" material="color:#c0392b;roughness:.3;metalness:.3"></a-box>
+  <a-text value="&#x09B6;&#x09CD;&#x09B0;&#x09C0; &#x09B6;&#x09CD;&#x09B0;&#x09C0; &#x09A6;&#x09C1;&#x09B0;&#x09CD;&#x0997;&#x09BE;&#x09AA;&#x09C2;&#x099C;&#x09BE; &#x09E8;&#x09E6;&#x09E8;&#x09EC;" color="#ffd700" position="0 0 .2" align="center" width="10"></a-text>
+ </a-entity>
+ <!-- CEILING -->
+ <a-box position="0 10.5 0" width="22" height=".12" depth="20" material="color:#c0392b;opacity:.65;transparent:true;roughness:.9"></a-box>
+ <!-- Hanging flower chains -->
+ <a-cylinder position="-4 9  3" radius=".06" height="4" material="color:#f39c12;roughness:.9" segments-radial="5"></a-cylinder>
+ <a-sphere   position="-4 7  3" radius=".3" material="color:#f39c12;emissive:#cc5500;emissiveIntensity:.4;roughness:.8"></a-sphere>
+ <a-cylinder position=" 4 9  3" radius=".06" height="4" material="color:#e67e22;roughness:.9" segments-radial="5"></a-cylinder>
+ <a-sphere   position=" 4 7  3" radius=".3" material="color:#e67e22;emissive:#cc4400;emissiveIntensity:.4;roughness:.8"></a-sphere>
+ <a-cylinder position="-4 9 -4" radius=".06" height="4" material="color:#f39c12;roughness:.9" segments-radial="5"></a-cylinder>
+ <a-sphere   position="-4 7 -4" radius=".3" material="color:#f39c12;emissive:#cc5500;emissiveIntensity:.4;roughness:.8"></a-sphere>
+ <a-cylinder position=" 4 9 -4" radius=".06" height="4" material="color:#e67e22;roughness:.9" segments-radial="5"></a-cylinder>
+ <a-sphere   position=" 4 7 -4" radius=".3" material="color:#e67e22;emissive:#cc4400;emissiveIntensity:.4;roughness:.8"></a-sphere>
+ <!-- Jhalar lamp -->
+ <a-cylinder position="0 9.5 -3" radius=".09" height="4" material="color:#c0922a;metalness:.6;roughness:.3" segments-radial="6"></a-cylinder>
+ <a-cone position="0 7.8 -3" radius-bottom=".9" radius-top=".1" height=".9" material="color:#d4a017;metalness:.7;roughness:.2;emissive:#cc8800;emissiveIntensity:.6" segments-radial="8"></a-cone>
+ <a-light type="point" color="#ff9900" intensity="3" distance="10" position="0 7.5 -3" pulse-light="speed:.45;min:2;max:3.5"></a-light>
+ <a-light type="point" color="#ff6600" intensity="1.5" distance="16" position="-5 7 0"></a-light>
+ <a-light type="point" color="#ff8800" intensity="1.5" distance="16" position=" 5 7 0"></a-light>
+ <a-light type="spot" color="#ffcc44" intensity="4.5" distance="15" angle="45" position="0 10 -5" rotation="-60 0 0"></a-light>
+ <!-- Wall string lights -->
+ <a-sphere position="-10 8  9" radius=".12" material="color:#ffff00;emissive:#ffff00;emissiveIntensity:2"></a-sphere>
+ <a-sphere position="-10 8  4" radius=".12" material="color:#ff8800;emissive:#ff8800;emissiveIntensity:2"></a-sphere>
+ <a-sphere position="-10 8 -1" radius=".12" material="color:#ffff00;emissive:#ffff00;emissiveIntensity:2"></a-sphere>
+ <a-sphere position="-10 8 -6" radius=".12" material="color:#ff4400;emissive:#ff4400;emissiveIntensity:2"></a-sphere>
+ <a-sphere position=" 10 8  9" radius=".12" material="color:#ff4400;emissive:#ff4400;emissiveIntensity:2"></a-sphere>
+ <a-sphere position=" 10 8  4" radius=".12" material="color:#ffff00;emissive:#ffff00;emissiveIntensity:2"></a-sphere>
+ <a-sphere position=" 10 8 -1" radius=".12" material="color:#ff8800;emissive:#ff8800;emissiveIntensity:2"></a-sphere>
+ <a-sphere position=" 10 8 -6" radius=".12" material="color:#ffff00;emissive:#ffff00;emissiveIntensity:2"></a-sphere>
+</a-entity>
+<!-- DURGA IDOL group z=-6 -->
+<a-entity id="durga-group" position="0 0 -6" class="clickable" hover-info="title:&#x1F64F; Maa Durga &#x2014; Goddess of Shakti;body:The destroyer of evil. Victory over Mahishasura &#x2014; triumph of Good over Evil. &#x099C;&#x09AF;&#x09BC; &#x09AE;&#x09BE; &#x09A6;&#x09C1;&#x09B0;&#x09CD;&#x0997;&#x09BE;!">
+ <!-- Stage -->
+ <a-box position="0 .35 0" width="15" height=".7" depth="9" material="color:#2d1500;roughness:.6;metalness:.1"></a-box>
+ <a-box position="0 .85 0" width="13" height=".4" depth="8" material="color:#c0922a;metalness:.5;roughness:.3"></a-box>
+ <a-box position="0 .35 4.3" width="11" height=".6" depth=".9" material="color:#8b6914;metalness:.3;roughness:.5"></a-box>
+ <a-box position="0 .12 5.1" width="11" height=".25" depth=".9" material="color:#8b6914;metalness:.3;roughness:.5"></a-box>
+ <!-- Chala backdrop -->
+ <a-box position="0 5.5 -3.8" width="15" height="8" depth=".25" material="color:#8b0000;roughness:.5;emissive:#200000;emissiveIntensity:.2"></a-box>
+ <a-torus position="0 10 -3.8" radius="4" radius-tubular=".45" theta-length="180" rotation="0 0 0" material="color:#c0392b;roughness:.3;metalness:.2;emissive:#4a0000;emissiveIntensity:.3" segments-radial="10"></a-torus>
+ <a-sphere position="-4 10 -3.8" radius=".35" material="color:#ffd700;metalness:.7;emissive:#aa8800;emissiveIntensity:.6"></a-sphere>
+ <a-sphere position=" 4 10 -3.8" radius=".35" material="color:#ffd700;metalness:.7;emissive:#aa8800;emissiveIntensity:.6"></a-sphere>
+ <a-sphere position="0 13.5 -3.8" radius=".4" material="color:#ffd700;metalness:.7;emissive:#ffcc00;emissiveIntensity:.9" float-anim="speed:.6;amplitude:.07"></a-sphere>
+ <!-- MAA DURGA central -->
+ <a-entity id="durga-main" position="0 2 -.5">
+  <a-cone position="0 -1.1 0" radius-bottom=".65" radius-top=".5" height="1.4" material="color:#cc1100;roughness:.5" segments-radial="8"></a-cone>
+  <a-cylinder position="0 0 0" radius=".48" height="2" material="color:#cc1100;roughness:.4;metalness:.2" segments-radial="8"></a-cylinder>
+  <a-cylinder position="-.72 .65 0" radius=".11" height="1" rotation="0 0 55" segments-radial="5" material="color:#e8b44a;roughness:.4"></a-cylinder>
+  <a-cylinder position=" .72 .65 0" radius=".11" height="1" rotation="0 0 -55" segments-radial="5" material="color:#e8b44a;roughness:.4"></a-cylinder>
+  <a-cylinder position="-.5 .15 .25" radius=".09" height=".85" rotation="10 0 28" segments-radial="5" material="color:#e8b44a;roughness:.4"></a-cylinder>
+  <a-cylinder position=" .5 .15 .25" radius=".09" height=".85" rotation="10 0 -28" segments-radial="5" material="color:#e8b44a;roughness:.4"></a-cylinder>
+  <a-cylinder position="-1.12 1 0" radius=".045" height="1.3" rotation="0 0 65" segments-radial="5" material="color:#c0c0c0;metalness:.8;roughness:.2"></a-cylinder>
+  <a-cone position="-1.6 1.6 0" radius-bottom=".08" radius-top=".01" height=".3" rotation="0 0 -25" segments-radial="4" material="color:#dcdcdc;metalness:.9;roughness:.1"></a-cone>
+  <a-torus position=".98 .9 0" radius=".22" radius-tubular=".045" material="color:#ffd700;metalness:.7;roughness:.2;emissive:#aa6600;emissiveIntensity:.55" segments-radial="8" spin-slow="speed:28"></a-torus>
+  <a-sphere position="-.38 -.22 .55" radius=".14" material="color:#ff88cc;roughness:.6;emissive:#cc2266;emissiveIntensity:.35"></a-sphere>
+  <a-sphere position="0 1.35 0" radius=".42" material="color:#e8b44a;roughness:.4;metalness:.1" segments-width="8" segments-height="8"></a-sphere>
+  <a-cone position="0 2.05 0" radius-bottom=".5" radius-top=".06" height=".95" material="color:#ffd700;metalness:.85;roughness:.08;emissive:#aa8800;emissiveIntensity:.45" segments-radial="8"></a-cone>
+  <a-sphere position="0 2.85 0" radius=".14" material="color:#ffd700;metalness:.95;roughness:.05;emissive:#ffcc00;emissiveIntensity:.7"></a-sphere>
+  <a-sphere position="-.28 2.65 0" radius=".07" material="color:#ff4444;emissive:#ff0000;emissiveIntensity:.65;metalness:.5"></a-sphere>
+  <a-sphere position=" .28 2.65 0" radius=".07" material="color:#ff4444;emissive:#ff0000;emissiveIntensity:.65;metalness:.5"></a-sphere>
+  <a-torus position="0 1.3 -.25" radius="1.1" radius-tubular=".07" material="color:#ffd700;emissive:#ffcc00;emissiveIntensity:.9;opacity:.75;transparent:true" segments-radial="12" float-anim="speed:.38;amplitude:.025"></a-torus>
+ </a-entity>
+ <!-- Mahishasura -->
+ <a-entity position="0 .9 1.4">
+  <a-box position="0 .12 0" width="1.3" height=".5" depth=".9" material="color:#2d1000;roughness:.8"></a-box>
+  <a-sphere position="0 .55 -.1" radius=".32" material="color:#1a0d00;roughness:.8" segments-width="6" segments-height="6"></a-sphere>
+  <a-cone position="-.27 .75 -.1" radius-bottom=".065" radius-top=".01" height=".45" rotation="0 0 -38" segments-radial="4" material="color:#0a0500;roughness:.9"></a-cone>
+  <a-cone position=" .27 .75 -.1" radius-bottom=".065" radius-top=".01" height=".45" rotation="0 0  38" segments-radial="4" material="color:#0a0500;roughness:.9"></a-cone>
+ </a-entity>
+ <!-- Lakshmi right -->
+ <a-entity position="3.4 1.05 -.3">
+  <a-cone position="0 -1 0" radius-bottom=".35" radius-top=".28" height="1.1" material="color:#ff99cc;roughness:.5" segments-radial="6"></a-cone>
+  <a-cylinder radius=".28" height="1.25" material="color:#ff99cc;roughness:.5" segments-radial="6"></a-cylinder>
+  <a-sphere position="0 .95 0" radius=".25" material="color:#e8b44a;roughness:.4" segments-width="6" segments-height="6"></a-sphere>
+  <a-cone position="0 1.4 0" radius-bottom=".3" radius-top=".05" height=".55" material="color:#ffd700;metalness:.7;roughness:.2" segments-radial="6"></a-cone>
+  <a-torus position="0 .8 -.18" radius=".6" radius-tubular=".05" material="color:#ffd700;emissive:#aa8800;emissiveIntensity:.45" segments-radial="10"></a-torus>
+ </a-entity>
+ <!-- Saraswati left -->
+ <a-entity position="-3.4 1.05 -.3">
+  <a-cone position="0 -1 0" radius-bottom=".35" radius-top=".28" height="1.1" material="color:#ddddff;roughness:.5" segments-radial="6"></a-cone>
+  <a-cylinder radius=".28" height="1.25" material="color:#ddddff;roughness:.5" segments-radial="6"></a-cylinder>
+  <a-sphere position="0 .95 0" radius=".25" material="color:#e8b44a;roughness:.4" segments-width="6" segments-height="6"></a-sphere>
+  <a-cone position="0 1.4 0" radius-bottom=".3" radius-top=".05" height=".55" material="color:#ffffff;metalness:.3;roughness:.4" segments-radial="6"></a-cone>
+  <a-box position=".44 .2 .32" width=".1" height=".65" depth=".1" material="color:#8b6914;roughness:.6"></a-box>
+  <a-torus position=".44 .72 -.12" radius=".42" radius-tubular=".045" material="color:#ffd700;emissive:#aa8800;emissiveIntensity:.45" segments-radial="10"></a-torus>
+ </a-entity>
+ <!-- Kartik far right -->
+ <a-entity position="6 1.05 -.3">
+  <a-cone position="0 -1 0" radius-bottom=".3" radius-top=".24" height="1.1" material="color:#ffcc44;roughness:.5" segments-radial="6"></a-cone>
+  <a-cylinder radius=".24" height="1.35" material="color:#ffcc44;roughness:.5" segments-radial="6"></a-cylinder>
+  <a-sphere position="0 1.05 0" radius=".22" material="color:#e8b44a;roughness:.4" segments-width="6" segments-height="6"></a-sphere>
+  <a-cone position="0 1.5 0" radius-bottom=".27" radius-top=".04" height=".5" material="color:#ffd700;metalness:.7;roughness:.2" segments-radial="6"></a-cone>
+  <a-cylinder position=".55 .55 0" radius=".034" height="1.6" rotation="0 0 -12" segments-radial="5" material="color:#c0c0c0;metalness:.8;roughness:.2"></a-cylinder>
+ </a-entity>
+ <!-- Ganesha far left -->
+ <a-entity position="-6 1.05 -.3">
+  <a-cone position="0 -1 0" radius-bottom=".35" radius-top=".3" height="1" material="color:#ffaa22;roughness:.5" segments-radial="6"></a-cone>
+  <a-cylinder radius=".3" height="1.15" material="color:#ffaa22;roughness:.5" segments-radial="6"></a-cylinder>
+  <a-sphere position="0 .95 0" radius=".28" material="color:#e8b44a;roughness:.4" segments-width="6" segments-height="6"></a-sphere>
+  <a-cylinder position="0 .72 .3" radius=".09" height=".55" rotation="75 0 0" segments-radial="5" material="color:#e8b44a;roughness:.4"></a-cylinder>
+  <a-sphere position="-.38 .95 0" radius=".24" material="color:#e8b44a;roughness:.5" segments-width="5" segments-height="5"></a-sphere>
+  <a-sphere position=" .38 .95 0" radius=".24" material="color:#e8b44a;roughness:.5" segments-width="5" segments-height="5"></a-sphere>
+  <a-cone position="0 1.42 0" radius-bottom=".3" radius-top=".04" height=".45" material="color:#ffd700;metalness:.7;roughness:.2" segments-radial="6"></a-cone>
+  <a-torus position="0 .72 -.18" radius=".45" radius-tubular=".045" material="color:#ffd700;emissive:#aa8800;emissiveIntensity:.55" segments-radial="10"></a-torus>
+ </a-entity>
+ <!-- Stage Diyas -->
+ <a-cone position="-5.5 1.15 3.5" radius-bottom=".16" radius-top=".11" height=".13" material="color:#c0922a;metalness:.4" segments-radial="6"></a-cone>
+ <a-sphere position="-5.5 1.27 3.5" radius=".065" material="color:#ffff44;emissive:#ffaa00;emissiveIntensity:2.8" float-anim="speed:3.2;amplitude:.01"></a-sphere>
+ <a-light type="point" color="#ff9900" intensity="1.6" distance="3.5" position="-5.5 1.6 3.5" pulse-light="speed:1.9;min:1;max:2.2"></a-light>
+ <a-cone position=" 5.5 1.15 3.5" radius-bottom=".16" radius-top=".11" height=".13" material="color:#c0922a;metalness:.4" segments-radial="6"></a-cone>
+ <a-sphere position=" 5.5 1.27 3.5" radius=".065" material="color:#ffff44;emissive:#ffaa00;emissiveIntensity:2.8" float-anim="speed:2.9;amplitude:.01"></a-sphere>
+ <a-light type="point" color="#ff9900" intensity="1.6" distance="3.5" position=" 5.5 1.6 3.5" pulse-light="speed:2.1;min:1;max:2.2"></a-light>
+ <a-cone position="0 1.15 4" radius-bottom=".16" radius-top=".11" height=".13" material="color:#c0922a;metalness:.4" segments-radial="6"></a-cone>
+ <a-sphere position="0 1.27 4" radius=".065" material="color:#ffff44;emissive:#ffaa00;emissiveIntensity:2.8" float-anim="speed:3;amplitude:.01"></a-sphere>
+ <a-light type="point" color="#ff9900" intensity="1.8" distance="4" position="0 1.6 4" pulse-light="speed:1.6;min:1.2;max:2.4"></a-light>
+ <!-- Dhunuchi -->
+ <a-entity position="-2.2 1.25 3"><a-cylinder radius=".11" height=".45" material="color:#4a3000;roughness:.8" segments-radial="6"></a-cylinder><a-cone position="0 .38 0" radius-bottom=".2" radius-top=".06" height=".28" material="color:#8b6000;roughness:.6" segments-radial="6"></a-cone><a-sphere position="0 .75 0" radius=".09" material="color:#fff;opacity:.25;transparent:true;emissive:#fff;emissiveIntensity:.5" float-anim="speed:1.1;amplitude:.18"></a-sphere></a-entity>
+ <a-entity position=" 2.2 1.25 3"><a-cylinder radius=".11" height=".45" material="color:#4a3000;roughness:.8" segments-radial="6"></a-cylinder><a-cone position="0 .38 0" radius-bottom=".2" radius-top=".06" height=".28" material="color:#8b6000;roughness:.6" segments-radial="6"></a-cone><a-sphere position="0 .75 0" radius=".09" material="color:#fff;opacity:.25;transparent:true;emissive:#fff;emissiveIntensity:.5" float-anim="speed:.85;amplitude:.16"></a-sphere></a-entity>
+ <a-light type="spot" color="#ffd700" intensity="6" distance="14" angle="28" position="0 10.5 .5" rotation="-72 0 0"></a-light>
+ <a-entity position="0 6.8 2.5" float-anim="speed:.5;amplitude:.12">
+  <a-box width="4.5" height=".75" depth=".12" material="color:#000;opacity:.72;transparent:true"></a-box>
+  <a-text value="&#x1F64F; &#x09AE;&#x09BE; &#x09A6;&#x09C1;&#x09B0;&#x09CD;&#x0997;&#x09BE; &#x2014; Jai Maa!" color="#ffd700" position="0 0 .12" align="center" width="4"></a-text>
+ </a-entity>
+</a-entity>
+<!-- SHOPS RIGHT SIDE -->
+<a-entity position="15 0 14" class="clickable" hover-info="title:&#x1F35C; Fuchka / Puchka Stall;body:Crispy hollow puris with spiced water &#x2014; the iconic Kolkata street food! &#x09F3;5 per plate.">
+ <a-box position="0 1.5 0" width="3.5" height="3" depth="2.5" material="color:#1a3a00;roughness:.7"></a-box>
+ <a-box position="0 3.1 0" width="4" height=".2" depth="3" material="color:#2d5a00;roughness:.6"></a-box>
+ <a-box position="0 1.2 1.1" width="3.2" height=".1" depth=".5" material="color:#5a3a00;roughness:.7"></a-box>
+ <a-entity position="0 3.55 0"><a-box width="3.2" height=".65" depth=".15" material="color:#0d2200;roughness:.4"></a-box><a-text value="&#x09AB;&#x09C1;&#x099A;&#x0995;&#x09BE; / Puchka &#x09F3;5" color="#88ff44" position="0 0 .1" align="center" width="3"></a-text></a-entity>
+ <a-sphere position="-.5 1.32 1.1" radius=".16" material="color:#c8a060;roughness:.8" segments-width="6" segments-height="5"></a-sphere>
+ <a-sphere position=" .3 1.32 1.1" radius=".16" material="color:#c8a060;roughness:.8" segments-width="6" segments-height="5"></a-sphere>
+ <a-light type="point" color="#88ff44" intensity="1.1" distance="5" position="0 3 0"></a-light>
+</a-entity>
 
-      <!-- Assets -->
-      <a-assets>
-        <img id="wood" src="https://cdn.aframe.io/a-painter/images/wood.jpg">
-        <img id="floor" src="https://cdn.aframe.io/a-painter/images/floor.jpg">
-        <img id="city-sky" src="https://cdn.aframe.io/360-image-gallery-boilerplate/img/city.jpg">
-      </a-assets>
+<a-entity position="15 0 5" class="clickable" hover-info="title:&#x1F368; Ice Cream Stall;body:Kulfi, vanilla and mango ice cream! Bengali favourite &#x09AE;&#x09BE;&#x09B2;&#x09BE;&#x0987; &#x0995;&#x09C1;&#x09B2;&#x09AB;&#x09BF; available!">
+ <a-box position="0 1.5 0" width="3.5" height="3" depth="2.5" material="color:#3a0066;roughness:.7"></a-box>
+ <a-box position="0 3.1 0" width="4" height=".2" depth="3" material="color:#6600aa;roughness:.6"></a-box>
+ <a-box position="0 1.2 1.1" width="3.2" height=".1" depth=".5" material="color:#2d0050;roughness:.7"></a-box>
+ <a-entity position="0 3.55 0"><a-box width="3.2" height=".65" depth=".15" material="color:#1a0033;roughness:.4"></a-box><a-text value="&#x1F366; &#x0986;&#x0987;&#x09B8;&#x0995;&#x09CD;&#x09B0;&#x09BF;&#x09AE;" color="#ff88ff" position="0 0 .1" align="center" width="3"></a-text></a-entity>
+ <a-cone position="-.5 1.35 1.1" radius-bottom=".12" radius-top=".01" height=".3" material="color:#d4a060;roughness:.7" segments-radial="6"></a-cone>
+ <a-sphere position="-.5 1.57 1.1" radius=".14" material="color:#ffe0e0;roughness:.5" segments-width="5" segments-height="5"></a-sphere>
+ <a-cone position=".3 1.35 1.1" radius-bottom=".12" radius-top=".01" height=".3" material="color:#d4a060;roughness:.7" segments-radial="6"></a-cone>
+ <a-sphere position=".3 1.57 1.1" radius=".14" material="color:#ffeeaa;roughness:.5" segments-width="5" segments-height="5"></a-sphere>
+ <a-light type="point" color="#bb44ff" intensity="1.1" distance="5" position="0 3 0"></a-light>
+</a-entity>
 
-      <!-- Camera + Controls (Desktop & VR) -->
-      <a-entity id="rig">
-        <a-entity camera position="0 1.6 0" look-controls wasd-controls>
-          <!-- Desktop mouse cursor -->
-          <a-cursor
-            color="#FFFFFF"
-            fuse="false"
-            raycaster="objects: .clickable; far: 20">
-          </a-cursor>
-        </a-entity>
+<a-entity position="15 0 -4" class="clickable" hover-info="title:&#x1F36C; &#x09AE;&#x09BF;&#x09B7;&#x09CD;&#x099F;&#x09BF; / Sweets Shop;body:&#x09B0;&#x09B8;&#x0997;&#x09CB;&#x09B2;&#x09CD;&#x09B2;&#x09BE;, &#x09B8;&#x09A8;&#x09CD;&#x09A6;&#x09C7;&#x09B6; &#x2014; authentic Bengali sweets made fresh!">
+ <a-box position="0 1.5 0" width="3.5" height="3" depth="2.5" material="color:#6b1a00;roughness:.7"></a-box>
+ <a-box position="0 3.1 0" width="4" height=".2" depth="3" material="color:#9b2a00;roughness:.6"></a-box>
+ <a-box position="0 1.2 1.1" width="3.2" height=".1" depth=".5" material="color:#4a1200;roughness:.7"></a-box>
+ <a-entity position="0 3.55 0"><a-box width="3.2" height=".65" depth=".15" material="color:#3a0800;roughness:.4"></a-box><a-text value="&#x1F36E; &#x09AE;&#x09BF;&#x09B7;&#x09CD;&#x099F;&#x09BF; Shop" color="#ffcc44" position="0 0 .1" align="center" width="3"></a-text></a-entity>
+ <a-sphere position="-.6 1.32 1.1" radius=".11" material="color:#e8c080;roughness:.5" segments-width="5" segments-height="5"></a-sphere>
+ <a-sphere position="-.3 1.32 1.1" radius=".11" material="color:#e8c080;roughness:.5" segments-width="5" segments-height="5"></a-sphere>
+ <a-sphere position=" 0  1.32 1.1" radius=".11" material="color:#c06020;roughness:.5" segments-width="5" segments-height="5"></a-sphere>
+ <a-sphere position=".3  1.32 1.1" radius=".11" material="color:#e8c080;roughness:.5" segments-width="5" segments-height="5"></a-sphere>
+ <a-light type="point" color="#ff8800" intensity="1.1" distance="5" position="0 3 0"></a-light>
+</a-entity>
 
-        <!-- VR Controllers -->
-        <a-entity
-          id="leftController"
-          meta-touch-controls="hand: left"
-          laser-controls="hand: left"
-          raycaster="objects: .clickable; far: 20"
-          line="color: cyan">
-        </a-entity>
-        <a-entity
-          id="rightController"
-          meta-touch-controls="hand: right"
-          laser-controls="hand: right"
-          raycaster="objects: .clickable; far: 20"
-          line="color: magenta">
-        </a-entity>
-      </a-entity>
+<a-entity position="15 0 -13" class="clickable" hover-info="title:&#x1F457; &#x09AA;&#x09CB;&#x09B6;&#x09BE;&#x0995; / Clothing Stall;body:Beautiful sarees, kurtas and traditional Bengali Puja clothing!">
+ <a-box position="0 1.5 0" width="3.5" height="3" depth="2.5" material="color:#003366;roughness:.7"></a-box>
+ <a-box position="0 3.1 0" width="4" height=".2" depth="3" material="color:#004488;roughness:.6"></a-box>
+ <a-entity position="0 3.55 0"><a-box width="3.2" height=".65" depth=".15" material="color:#001a33;roughness:.4"></a-box><a-text value="&#x1F457; &#x09AA;&#x09CB;&#x09B6;&#x09BE;&#x0995; / Clothing" color="#44aaff" position="0 0 .1" align="center" width="3"></a-text></a-entity>
+ <a-plane position="-.8 2 1.1" width=".65" height=".95" material="color:#ff4488;opacity:.8;transparent:true;roughness:.8" side="double"></a-plane>
+ <a-plane position=" .5 2 1.1" width=".65" height=".95" material="color:#44ff88;opacity:.8;transparent:true;roughness:.8" side="double"></a-plane>
+ <a-light type="point" color="#4488ff" intensity="1.1" distance="5" position="0 3 0"></a-light>
+</a-entity>
 
-      <!-- Lights -->
-      <a-light type="ambient" color="#BBB" intensity="0.5"></a-light>
-      <a-light type="directional" color="#FFF" intensity="0.8" position="-1 2 1"></a-light>
+<!-- SHOPS LEFT SIDE -->
+<a-entity position="-15 0 14" class="clickable" hover-info="title:&#x1F37D; Street Food Stall;body:Kati rolls, jhalmuri, aloo kabli &#x2014; hot Kolkata street food! &#x099C;&#x09B2;&#x0996;&#x09BE;&#x09AC;&#x09BE;&#x09B0; &#x09F3;20 &#x09A5;&#x09C7;&#x0995;&#x09C7;!">
+ <a-box position="0 1.5 0" width="3.5" height="3" depth="2.5" material="color:#4a2000;roughness:.7"></a-box>
+ <a-box position="0 3.1 0" width="4" height=".2" depth="3" material="color:#7a3500;roughness:.6"></a-box>
+ <a-box position="0 1.2 1.1" width="3.2" height=".1" depth=".5" material="color:#3a1800;roughness:.7"></a-box>
+ <a-entity position="0 3.55 0"><a-box width="3.2" height=".65" depth=".15" material="color:#200a00;roughness:.4"></a-box><a-text value="&#x1F37D; Street Food &#x09B8;&#x09CD;&#x099F;&#x09B2;" color="#ffaa44" position="0 0 .1" align="center" width="3"></a-text></a-entity>
+ <a-cylinder position="0 1.4 .8" radius=".3" height=".32" material="color:#2a2a2a;roughness:.8;metalness:.35" segments-radial="8"></a-cylinder>
+ <a-light type="point" color="#ff6600" intensity="1.5" distance="5" position="0 1.8 0"></a-light>
+</a-entity>
 
-      <!-- Scene Objects -->
-       <a-image src="https://raw.githubusercontent.com/alluringxstalwart/SourceYISL/main/Landscape.png" position="0 5 -10"
-      width="25" height="7.5"></a-image>
-    
-    <a-text value="Young Innovators STEM Lab" position="0 9.5 -10" align="center" color="white" font="mozillavr"
-      width="10" height="5" anchor="center">
-    </a-text>
-      <a-box
-        position="-2 0.5 -3"
-        rotation="0 45 0"
-        src="#wood"
-        class="clickable"
-        animation="property: rotation; to: 0 405 0; loop: true; dur: 5000">
-      </a-box>
+<a-entity position="-15 0 5" class="clickable" hover-info="title:&#x1F964; Juice &amp; Drinks;body:Sugarcane juice, nimbu pani, lassi &#x2014; quench your Puja thirst!">
+ <a-box position="0 1.5 0" width="3.5" height="3" depth="2.5" material="color:#003300;roughness:.7"></a-box>
+ <a-box position="0 3.1 0" width="4" height=".2" depth="3" material="color:#005500;roughness:.6"></a-box>
+ <a-entity position="0 3.55 0"><a-box width="3.2" height=".65" depth=".15" material="color:#001a00;roughness:.4"></a-box><a-text value="&#x1F964; &#x099C;&#x09C1;&#x09B8; / Juice" color="#44ff88" position="0 0 .1" align="center" width="3"></a-text></a-entity>
+ <a-cylinder position="-.5 1.5 .8" radius=".1" height=".65" material="color:#44ff44;opacity:.7;transparent:true" segments-radial="6"></a-cylinder>
+ <a-cylinder position=" 0  1.5 .8" radius=".1" height=".65" material="color:#ffff44;opacity:.7;transparent:true" segments-radial="6"></a-cylinder>
+ <a-cylinder position=" .5  1.5 .8" radius=".1" height=".65" material="color:#ff8844;opacity:.7;transparent:true" segments-radial="6"></a-cylinder>
+ <a-light type="point" color="#44aa44" intensity="1.1" distance="5" position="0 3 0"></a-light>
+</a-entity>
 
-      <a-sphere
-        position="0 1.25 -5"
-        radius="1.25"
-        color="#EF2D5E"
-        class="clickable"
-        animation="property: position; to: 0 2.5 -5; dir: alternate; loop: true; dur: 1500">
-      </a-sphere>
+<a-entity position="-15 0 -4" class="clickable" hover-info="title:&#x1F388; Toys &amp; Balloons;body:Colourful balloons and puja gifts for children! &#x09AC;&#x09C7;&#x09B2;&#x09C1;&#x09A8; &#x0993; &#x0996;&#x09C7;&#x09B2;&#x09A8;&#x09BE;!">
+ <a-box position="0 1.5 0" width="3.5" height="3" depth="2.5" material="color:#550066;roughness:.7"></a-box>
+ <a-box position="0 3.1 0" width="4" height=".2" depth="3" material="color:#7700aa;roughness:.6"></a-box>
+ <a-entity position="0 3.55 0"><a-box width="3.2" height=".65" depth=".15" material="color:#2a0033;roughness:.4"></a-box><a-text value="&#x1F388; &#x0996;&#x09C7;&#x09B2;&#x09A8;&#x09BE; / Toys" color="#ff88ff" position="0 0 .1" align="center" width="3"></a-text></a-entity>
+ <a-sphere position="-.85 3.85 0" radius=".38" material="color:#ff4444;emissive:#aa0000;emissiveIntensity:.35" segments-width="6" segments-height="5" float-anim="speed:.8;amplitude:.09"></a-sphere>
+ <a-cylinder position="-.85 3.45 0" radius=".022" height=".55" material="color:#888" segments-radial="4"></a-cylinder>
+ <a-sphere position=" 0   4.05 0" radius=".38" material="color:#4444ff;emissive:#000088;emissiveIntensity:.35" segments-width="6" segments-height="5" float-anim="speed:1.1;amplitude:.11"></a-sphere>
+ <a-cylinder position=" 0   3.65 0" radius=".022" height=".55" material="color:#888" segments-radial="4"></a-cylinder>
+ <a-sphere position=" .85 3.85 0" radius=".38" material="color:#44ff44;emissive:#008800;emissiveIntensity:.35" segments-width="6" segments-height="5" float-anim="speed:.9;amplitude:.1"></a-sphere>
+ <a-cylinder position=" .85 3.45 0" radius=".022" height=".55" material="color:#888" segments-radial="4"></a-cylinder>
+ <a-light type="point" color="#ff44ff" intensity="1.1" distance="5" position="0 3 0"></a-light>
+</a-entity>
 
-      <a-cylinder
-        position="2 0.75 -3"
-        radius="0.5"
-        height="1.5"
-        color="#FFC65D"
-        class="clickable"
-        animation="property: scale; to: 1.3 1.3 1.3; dir: alternate; loop: true; dur: 800">
-      </a-cylinder>
+<a-entity position="-15 0 -13" class="clickable" hover-info="title:&#x1F338; &#x09AB;&#x09C1;&#x09B2; &#x09AE;&#x09BE;&#x09B2;&#x09BE; / Flowers;body:Fresh marigold garlands, rose petals and puja flowers! &#x09B8;&#x09A4;&#x09C7;&#x099C; &#x0993; &#x09B8;&#x09C1;&#x0997;&#x09A8;&#x09CD;&#x09A7;&#x09BF;!">
+ <a-box position="0 1.5 0" width="3.5" height="3" depth="2.5" material="color:#2a0044;roughness:.7"></a-box>
+ <a-box position="0 3.1 0" width="4" height=".2" depth="3" material="color:#440066;roughness:.6"></a-box>
+ <a-entity position="0 3.55 0"><a-box width="3.2" height=".65" depth=".15" material="color:#110022;roughness:.4"></a-box><a-text value="&#x1F338; &#x09AB;&#x09C1;&#x09B2; &#x09AE;&#x09BE;&#x09B2;&#x09BE;" color="#ffaaff" position="0 0 .1" align="center" width="3"></a-text></a-entity>
+ <a-cone position="-.65 1.2 .8" radius-bottom=".26" radius-top=".21" height=".42" material="color:#c0922a;roughness:.6" segments-radial="6"></a-cone>
+ <a-sphere position="-.65 1.56 .8" radius=".27" material="color:#ff8822;roughness:.6" segments-width="6" segments-height="5"></a-sphere>
+ <a-cone position=" .45 1.2 .8" radius-bottom=".26" radius-top=".21" height=".42" material="color:#c0922a;roughness:.6" segments-radial="6"></a-cone>
+ <a-sphere position=" .45 1.56 .8" radius=".27" material="color:#ff2266;roughness:.6" segments-width="6" segments-height="5"></a-sphere>
+ <a-torus position="0 2.6 1.2" radius="1.1" radius-tubular=".12" material="color:#f39c12;roughness:.8" segments-radial="10"></a-torus>
+ <a-light type="point" color="#ff44aa" intensity="1.1" distance="5" position="0 3 0"></a-light>
+</a-entity>
 
-      <!-- Environment -->
-      <a-plane
-        position="0 0 -4"
-        rotation="-90 0 0"
-        width="20"
-        height="20"
-        src="#floor">
-      </a-plane>
+<!-- Back stalls -->
+<a-entity position="12 0 -22" class="clickable" hover-info="title:&#x1F3A8; &#x09B9;&#x09B8;&#x09CD;&#x09A4;&#x09B6;&#x09BF;&#x09B2;&#x09CD;&#x09AA; / Handicraft;body:Terracotta, Kantha work, Dokra art &#x2014; authentic Bengali handicrafts!">
+ <a-box position="0 1.5 0" width="3" height="3" depth="2" material="color:#3a2000;roughness:.8"></a-box>
+ <a-box position="0 3.1 0" width="3.5" height=".2" depth="2.5" material="color:#5a3a00;roughness:.7"></a-box>
+ <a-entity position="0 3.55 0"><a-box width="2.8" height=".65" depth=".15" material="color:#1a0e00;roughness:.4"></a-box><a-text value="&#x1F3A8; &#x09B9;&#x09B8;&#x09CD;&#x09A4;&#x09B6;&#x09BF;&#x09B2;&#x09CD;&#x09AA;" color="#ffaa22" position="0 0 .1" align="center" width="2.6"></a-text></a-entity>
+ <a-light type="point" color="#ffaa22" intensity=".9" distance="4" position="0 3 0"></a-light>
+</a-entity>
 
-      <a-sky src="#city-sky"></a-sky>
+<a-entity position="-12 0 -22" class="clickable" hover-info="title:&#x1FA94; &#x09AA;&#x09C2;&#x099C;&#x09BE; &#x09B8;&#x09BE;&#x09AE;&#x0997;&#x09CD;&#x09B0;&#x09C0;;body:Diyas, agarbatti, sindoor, kumkum &#x2014; all puja essentials here!">
+ <a-box position="0 1.5 0" width="3" height="3" depth="2" material="color:#4a0000;roughness:.8"></a-box>
+ <a-box position="0 3.1 0" width="3.5" height=".2" depth="2.5" material="color:#7a0000;roughness:.7"></a-box>
+ <a-entity position="0 3.55 0"><a-box width="2.8" height=".65" depth=".15" material="color:#1a0000;roughness:.4"></a-box><a-text value="&#x1FA94; &#x09AA;&#x09C2;&#x099C;&#x09BE; &#x09B8;&#x09BE;&#x09AE;&#x0997;&#x09CD;&#x09B0;&#x09C0;" color="#ff8844" position="0 0 .1" align="center" width="2.6"></a-text></a-entity>
+ <a-cone position="0 1.2 .8" radius-bottom=".15" radius-top=".1" height=".14" material="color:#c0922a;metalness:.4" segments-radial="6"></a-cone>
+ <a-sphere position="0 1.3 .8" radius=".065" material="color:#ffff44;emissive:#ffaa00;emissiveIntensity:2.8"></a-sphere>
+ <a-light type="point" color="#ff8844" intensity=".9" distance="4" position="0 3 0"></a-light>
+</a-entity>
+<!-- DHAK PERFORMANCE AREA z=46 -->
+<a-entity id="dhak-area" position="0 0 46" class="clickable" hover-info="title:&#x1FA98; &#x09A2;&#x09BE;&#x0995; &#x09AC;&#x09BE;&#x09A6;&#x09A8; / Dhak Performance;body:Click to hear a dhak beat! The thunderous &#x09A2;&#x09BE;&#x0995; is the heartbeat of Durga Puja &#x2014; &#x099C;&#x09AF;&#x09BC; &#x09AE;&#x09BE;!">
+ <a-cylinder position="0 .35 0" radius="4.5" height=".7" material="color:#2d1a00;roughness:.7" segments-radial="16"></a-cylinder>
+ <a-cylinder position="-1.2 1.3 0" radius=".42" height="1" rotation="0 0 32" segments-radial="8" material="color:#5a2800;roughness:.6"></a-cylinder>
+ <a-circle position="-1.7 1.32 .15" radius=".42" rotation="0 -58 0" material="color:#d4a060;roughness:.7"></a-circle>
+ <a-cylinder position=" 1.2 1.3 0" radius=".42" height="1" rotation="0 0 -32" segments-radial="8" material="color:#5a2800;roughness:.6"></a-cylinder>
+ <a-circle position=" 1.7 1.32 .15" radius=".42" rotation="0 58 0" material="color:#d4a060;roughness:.7"></a-circle>
+ <a-entity position="0 4.5 0"><a-box width="5" height=".9" depth=".15" material="color:#1a0000;roughness:.4"></a-box><a-text value="&#x1FA98; &#x09A2;&#x09BE;&#x0995; &#x09AC;&#x09BE;&#x09A6;&#x09A8; &#x2014; Click!" color="#ff8800" position="0 0 .1" align="center" width="4.8"></a-text></a-entity>
+ <a-cylinder position="-4 2.5 0" radius=".06" height="5.5" material="color:#777;metalness:.5" segments-radial="5"></a-cylinder>
+ <a-plane position="-4 5.5 .35" width="1.6" height=".85" material="color:#ff0000;opacity:.92;transparent:true" side="double"></a-plane>
+ <a-cylinder position=" 4 2.5 0" radius=".06" height="5.5" material="color:#777;metalness:.5" segments-radial="5"></a-cylinder>
+ <a-plane position=" 4 5.5 .35" width="1.6" height=".85" material="color:#ff9900;opacity:.92;transparent:true" side="double"></a-plane>
+ <a-light type="point" color="#ff6600" intensity="2.2" distance="9" position="0 3.5 0"></a-light>
+</a-entity>
 
-      <!-- UI Text -->
-      <a-text
-        value="Welcome to VR Workshop!"
-        position="0 3.5 -5"
-        align="center"
-        color="#FFFFFF"
-        width="8">
-      </a-text>
+<!-- INFO BOARD z=40 -->
+<a-entity id="info-board" position="0 0 40">
+ <a-box position="0 2.5 0" width="6.5" height="4.5" depth=".22" material="color:#0d0500;roughness:.4;metalness:.1"></a-box>
+ <a-box position="0 2.5 -.06" width="7.1" height="5.1" depth=".1" material="color:#8b6914;metalness:.35;roughness:.4"></a-box>
+ <a-text value="&#x09A6;&#x09C1;&#x09B0;&#x09CD;&#x0997;&#x09BE;&#x09AA;&#x09C2;&#x099C;&#x09BE;&#x09B0; &#x09A4;&#x09BE;&#x09CE;&#x09AA;&#x09B0;&#x09CD;&#x09AF;\n\nDurga Puja celebrates\nthe victory of Goddess\nDurga over Mahishasura.\n\nIt symbolises the\ntriumph of Good over\nEvil, Light over Dark.\n\nFestival lasts 10 days\nending on Vijaya Dashami.\n\n&#x1F64F; Jai Maa Durga!" color="#ffd700" position="0 2.5 .15" align="center" width="6" wrap-count="26" line-height="48"></a-text>
+ <a-cylinder position="0 .5 0" radius=".09" height="1.1" material="color:#5a3a00;roughness:.6" segments-radial="6"></a-cylinder>
+ <a-box position="0 0 0" width="1.1" height=".1" depth=".55" material="color:#3a2000;roughness:.8"></a-box>
+</a-entity>
 
-      <a-text
-        value="Click objects to change color! (WASD to move, Mouse to look)"
-        position="0 0.5 -2"
-        align="center"
-        color="#AAAAAA"
-        width="5">
-      </a-text>
+<!-- STREET LIGHTS -->
+<a-entity position="-8.5 0 28"><a-cylinder radius=".09" height="7" material="color:#555;metalness:.5" segments-radial="5"></a-cylinder><a-sphere position="0 3.7 .5" radius=".28" material="color:#ffff88;emissive:#ffff44;emissiveIntensity:2.5"></a-sphere><a-light type="point" color="#ffff88" intensity="2.5" distance="11" position="0 3.7 0" pulse-light="speed:.2;min:1.8;max:2.8"></a-light></a-entity>
+<a-entity position=" 8.5 0 28"><a-cylinder radius=".09" height="7" material="color:#555;metalness:.5" segments-radial="5"></a-cylinder><a-sphere position="0 3.7 .5" radius=".28" material="color:#ffff88;emissive:#ffff44;emissiveIntensity:2.5"></a-sphere><a-light type="point" color="#ffff88" intensity="2.5" distance="11" position="0 3.7 0" pulse-light="speed:.22;min:1.8;max:2.8"></a-light></a-entity>
+<a-entity position="-8.5 0 14"><a-cylinder radius=".09" height="7" material="color:#555;metalness:.5" segments-radial="5"></a-cylinder><a-sphere position="0 3.7 .5" radius=".28" material="color:#ffff88;emissive:#ffff44;emissiveIntensity:2.5"></a-sphere><a-light type="point" color="#ffff88" intensity="2.5" distance="11" position="0 3.7 0" pulse-light="speed:.25;min:1.8;max:2.8"></a-light></a-entity>
+<a-entity position=" 8.5 0 14"><a-cylinder radius=".09" height="7" material="color:#555;metalness:.5" segments-radial="5"></a-cylinder><a-sphere position="0 3.7 .5" radius=".28" material="color:#ffff88;emissive:#ffff44;emissiveIntensity:2.5"></a-sphere><a-light type="point" color="#ffff88" intensity="2.5" distance="11" position="0 3.7 0" pulse-light="speed:.18;min:1.8;max:2.8"></a-light></a-entity>
+<a-entity position="-8.5 0 -8"><a-cylinder radius=".09" height="7" material="color:#555;metalness:.5" segments-radial="5"></a-cylinder><a-sphere position="0 3.7 .5" radius=".28" material="color:#ffff88;emissive:#ffff44;emissiveIntensity:2.5"></a-sphere><a-light type="point" color="#ffff88" intensity="2.5" distance="11" position="0 3.7 0" pulse-light="speed:.3;min:1.8;max:2.8"></a-light></a-entity>
+<a-entity position=" 8.5 0 -8"><a-cylinder radius=".09" height="7" material="color:#555;metalness:.5" segments-radial="5"></a-cylinder><a-sphere position="0 3.7 .5" radius=".28" material="color:#ffff88;emissive:#ffff44;emissiveIntensity:2.5"></a-sphere><a-light type="point" color="#ffff88" intensity="2.5" distance="11" position="0 3.7 0" pulse-light="speed:.28;min:1.8;max:2.8"></a-light></a-entity>
 
-     <!-- Interaction Script -->
-      <script>
-        AFRAME.registerComponent('click-change-color', {
-          init: function () {
-            this.el.addEventListener('click', function () {
-              var randomColor = '#' + Math.floor(Math.random() * 16777215).toString(16).padStart(6, '0');
-              // Remove any texture so the color is visible (fixes the box)
-              this.removeAttribute('src');
-              this.setAttribute('material', 'src', '');
-              this.setAttribute('color', randomColor);
-            });
-          }
-        });
+<!-- OVERHEAD STRING LIGHTS -->
+<a-cylinder position="-7.5 5.5 22" radius=".035" height="15" rotation="0 0 90" segments-radial="4" material="color:#333"></a-cylinder>
+<a-sphere position="-5.5 5.8 22" radius=".11" material="color:#ff4400;emissive:#ff4400;emissiveIntensity:2.8"></a-sphere>
+<a-sphere position="-3   5.5 22" radius=".11" material="color:#ffff00;emissive:#ffff00;emissiveIntensity:2.8"></a-sphere>
+<a-sphere position="-0.5 5.8 22" radius=".11" material="color:#44ff44;emissive:#44ff44;emissiveIntensity:2.8"></a-sphere>
+<a-sphere position=" 2   5.5 22" radius=".11" material="color:#4444ff;emissive:#4444ff;emissiveIntensity:2.8"></a-sphere>
+<a-sphere position=" 4.5 5.8 22" radius=".11" material="color:#ff44ff;emissive:#ff44ff;emissiveIntensity:2.8"></a-sphere>
+<a-sphere position=" 7   5.5 22" radius=".11" material="color:#ff8800;emissive:#ff8800;emissiveIntensity:2.8"></a-sphere>
+<a-cylinder position="-7.5 5.5 38" radius=".035" height="15" rotation="0 0 90" segments-radial="4" material="color:#333"></a-cylinder>
+<a-sphere position="-5.5 5.8 38" radius=".11" material="color:#ffff00;emissive:#ffff00;emissiveIntensity:2.8"></a-sphere>
+<a-sphere position="-3   5.5 38" radius=".11" material="color:#ff4400;emissive:#ff4400;emissiveIntensity:2.8"></a-sphere>
+<a-sphere position="-0.5 5.8 38" radius=".11" material="color:#ff44ff;emissive:#ff44ff;emissiveIntensity:2.8"></a-sphere>
+<a-sphere position=" 2   5.5 38" radius=".11" material="color:#44ff44;emissive:#44ff44;emissiveIntensity:2.8"></a-sphere>
+<a-sphere position=" 4.5 5.8 38" radius=".11" material="color:#ff8800;emissive:#ff8800;emissiveIntensity:2.8"></a-sphere>
+<a-sphere position=" 7   5.5 38" radius=".11" material="color:#4444ff;emissive:#4444ff;emissiveIntensity:2.8"></a-sphere>
 
-        document.addEventListener('DOMContentLoaded', function () {
-          document.querySelectorAll('.clickable').forEach(function (obj) {
-            obj.setAttribute('click-change-color', '');
-          });
-        });
-      </script>
+<!-- FESTIVAL FLAGS -->
+<a-cylinder position="-6 0 20" radius=".055" height="7.5" material="color:#777;metalness:.5" segments-radial="5"></a-cylinder>
+<a-plane position="-6 7 .35" width="1.7" height=".9" material="color:#ff8800;opacity:.92;transparent:true" side="double"></a-plane>
+<a-text value="&#x099C;&#x09AF;&#x09BC; &#x09AE;&#x09BE; &#x09A6;&#x09C1;&#x09B0;&#x09CD;&#x0997;&#x09BE;!" color="#fff" position="-6 7 .65" align="center" width="1.5"></a-text>
+<a-cylinder position=" 6 0 20" radius=".055" height="7.5" material="color:#777;metalness:.5" segments-radial="5"></a-cylinder>
+<a-plane position=" 6 7 .35" width="1.7" height=".9" material="color:#cc0000;opacity:.92;transparent:true" side="double"></a-plane>
+<a-text value="&#x09B6;&#x09C1;&#x09AD; &#x09AA;&#x09C2;&#x099C;&#x09BE;!" color="#ffd700" position=" 6 7 .65" align="center" width="1.5"></a-text>
+<a-cylinder position="-6 0 34" radius=".055" height="7.5" material="color:#777;metalness:.5" segments-radial="5"></a-cylinder>
+<a-plane position="-6 7 .35" width="1.7" height=".9" material="color:#009900;opacity:.92;transparent:true" side="double"></a-plane>
+<a-text value="&#x0986;&#x09B6;&#x09C0;&#x09B0;&#x09CD;&#x09AC;&#x09BE;&#x09A6;!" color="#fff" position="-6 7 .65" align="center" width="1.5"></a-text>
+<a-cylinder position=" 6 0 34" radius=".055" height="7.5" material="color:#777;metalness:.5" segments-radial="5"></a-cylinder>
+<a-plane position=" 6 7 .35" width="1.7" height=".9" material="color:#6600cc;opacity:.92;transparent:true" side="double"></a-plane>
+<a-text value="&#x09AC;&#x09BF;&#x099C;&#x09AF;&#x09BC;&#x09BE;!" color="#ffcc44" position=" 6 7 .65" align="center" width="1.5"></a-text>
+<!-- CROWD FIGURES -->
+<a-entity position="11 0 16"><a-cylinder radius=".22" height="1.05" position="0 .52 0" material="color:#cc4400;roughness:.8" segments-radial="5"></a-cylinder><a-sphere position="0 1.3 0" radius=".21" material="color:#e8b44a;roughness:.5" segments-width="5" segments-height="5"></a-sphere></a-entity>
+<a-entity position="-11 0 8"><a-cylinder radius=".22" height="1.1" position="0 .55 0" material="color:#0044aa;roughness:.8" segments-radial="5"></a-cylinder><a-sphere position="0 1.38 0" radius=".21" material="color:#c08830;roughness:.5" segments-width="5" segments-height="5"></a-sphere></a-entity>
+<a-entity position="3.5 0 22"><a-cylinder radius=".22" height=".95" position="0 .47 0" material="color:#aa00cc;roughness:.8" segments-radial="5"></a-cylinder><a-sphere position="0 1.2 0" radius=".21" material="color:#d4a050;roughness:.5" segments-width="5" segments-height="5"></a-sphere></a-entity>
+<a-entity position="-3.5 0 26"><a-cylinder radius=".22" height="1.05" position="0 .52 0" material="color:#cc6600;roughness:.8" segments-radial="5"></a-cylinder><a-sphere position="0 1.3 0" radius=".21" material="color:#e8b44a;roughness:.5" segments-width="5" segments-height="5"></a-sphere></a-entity>
+<a-entity position="5.5 0 14"><a-cylinder radius=".22" height="1.08" position="0 .54 0" material="color:#006600;roughness:.8" segments-radial="5"></a-cylinder><a-sphere position="0 1.35 0" radius=".21" material="color:#c07020;roughness:.5" segments-width="5" segments-height="5"></a-sphere></a-entity>
+<a-entity position="-7.5 0 18"><a-cylinder radius=".22" height=".98" position="0 .49 0" material="color:#cc0044;roughness:.8" segments-radial="5"></a-cylinder><a-sphere position="0 1.25 0" radius=".21" material="color:#e8b44a;roughness:.5" segments-width="5" segments-height="5"></a-sphere></a-entity>
 
-    </a-scene>
-  </body>
-</html>         
+<!-- BENCHES -->
+<a-box position=" 9.5 .42 24" width="2.2" height=".1" depth=".55" material="color:#5a3a00;roughness:.8"></a-box>
+<a-box position=" 8.7 .28 24" width=".1" height=".4" depth=".44" material="color:#4a2a00;roughness:.9"></a-box>
+<a-box position="10.3 .28 24" width=".1" height=".4" depth=".44" material="color:#4a2a00;roughness:.9"></a-box>
+<a-box position="-9.5 .42 24" width="2.2" height=".1" depth=".55" material="color:#5a3a00;roughness:.8"></a-box>
+<a-box position="-8.7 .28 24" width=".1" height=".4" depth=".44" material="color:#4a2a00;roughness:.9"></a-box>
+<a-box position="-10.3 .28 24" width=".1" height=".4" depth=".44" material="color:#4a2a00;roughness:.9"></a-box>
+
+<!-- TREES -->
+<a-entity position=" 19 0 2"><a-cylinder radius=".22" height="4.5" position="0 2.25 0" material="color:#3a2000;roughness:.9" segments-radial="5"></a-cylinder><a-sphere position="0 5.5 0" radius="2.2" material="color:#1a4a00;roughness:.9" segments-width="6" segments-height="5"></a-sphere></a-entity>
+<a-entity position="-19 0 2"><a-cylinder radius=".22" height="4.5" position="0 2.25 0" material="color:#3a2000;roughness:.9" segments-radial="5"></a-cylinder><a-sphere position="0 5.5 0" radius="2.2" material="color:#1a4a00;roughness:.9" segments-width="6" segments-height="5"></a-sphere></a-entity>
+<a-entity position=" 19 0 22"><a-cylinder radius=".22" height="4" position="0 2 0" material="color:#3a2000;roughness:.9" segments-radial="5"></a-cylinder><a-sphere position="0 5 0" radius="2" material="color:#224a00;roughness:.9" segments-width="6" segments-height="5"></a-sphere></a-entity>
+<a-entity position="-19 0 22"><a-cylinder radius=".22" height="4" position="0 2 0" material="color:#3a2000;roughness:.9" segments-radial="5"></a-cylinder><a-sphere position="0 5 0" radius="2" material="color:#224a00;roughness:.9" segments-width="6" segments-height="5"></a-sphere></a-entity>
+
+<!-- CAMERA RIG + VR CONTROLLERS -->
+<a-entity id="rig" position="0 0 52">
+ <a-camera id="camera" look-controls="pointerLockEnabled:false" wasd-controls="acceleration:28;fly:false" position="0 1.6 0">
+  <!-- VR HUD -->
+  <a-entity id="vr-hud" position="0 -.5 -1.6" visible="false">
+   <a-plane width="1.4" height=".7" material="color:#000;opacity:.78;transparent:true"></a-plane>
+   <a-text value="&#x1F3AE; VR Controls\nLeft Stick: Move\nRight Trigger: Teleport\nLeft B: Toggle Music\nHeadset: Look Around" color="#ffd700" position="0 0 .01" align="center" width="1.25" wrap-count="26" line-height="44"></a-text>
+  </a-entity>
+  <!-- Desktop cursor -->
+  <a-cursor id="cursor" fuse="false" raycaster="far:25;objects:.clickable" material="color:#ffd700;opacity:.75"></a-cursor>
+ </a-camera>
+ <!-- Left hand: move + teleport -->
+ <a-entity id="leftHand" laser-controls="hand:left" raycaster="objects:.clickable,.teleportable;far:22;lineColor:#f39c12;lineOpacity:.6" teleport-controls-custom></a-entity>
+ <!-- Right hand: interact -->
+ <a-entity id="rightHand" laser-controls="hand:right" raycaster="objects:.clickable;far:22;lineColor:#ffd700;lineOpacity:.8"></a-entity>
+</a-entity>
+
+</a-scene>
+<script>
+/* ── AUDIO ENGINE ── */
+var audioCtx=null,isPlaying=false,masterGain=null,oscNodes=[];
+function initCtx(){if(audioCtx)return;audioCtx=new(window.AudioContext||window.webkitAudioContext)();masterGain=audioCtx.createGain();masterGain.gain.value=.16;masterGain.connect(audioCtx.destination)}
+
+function startAudio(){
+  initCtx();if(isPlaying)return;isPlaying=true;
+  // Tanpura drone
+  [130.81,196,261.63,329.63].forEach(function(f,i){
+    var o=audioCtx.createOscillator(),g=audioCtx.createGain();
+    o.type=i%2?'triangle':'sawtooth';o.frequency.value=f;g.gain.value=.055;
+    o.connect(g);g.connect(masterGain);o.start();oscNodes.push({osc:o,gain:g});
+  });
+  // Bell pattern
+  function bell(freq,delay){setTimeout(function(){
+    if(!isPlaying)return;
+    var o=audioCtx.createOscillator(),g=audioCtx.createGain();
+    o.type='sine';o.frequency.value=freq;
+    g.gain.setValueAtTime(.28,audioCtx.currentTime);
+    g.gain.exponentialRampToValueAtTime(.001,audioCtx.currentTime+2.8);
+    o.connect(g);g.connect(masterGain);o.start();o.stop(audioCtx.currentTime+3);
+  },delay)}
+  function bellLoop(){if(!isPlaying)return;bell(880,0);bell(1108,420);bell(1318,840);bell(880,1680);bell(1108,2100);setTimeout(bellLoop,4200)}
+  bellLoop();
+  // Dhak rhythm
+  function dhakHit(t){var o=audioCtx.createOscillator(),g=audioCtx.createGain();o.type='square';o.frequency.value=72+Math.random()*22;g.gain.setValueAtTime(.22,t);g.gain.exponentialRampToValueAtTime(.001,t+.16);o.connect(g);g.connect(masterGain);o.start(t);o.stop(t+.18)}
+  function dhakLoop(){if(!isPlaying)return;var now=audioCtx.currentTime;[0,.38,.76,1.14,1.52,1.72,1.9,2.28].forEach(function(s){dhakHit(now+s)});setTimeout(dhakLoop,2500)}
+  dhakLoop();
+}
+
+function stopAudio(){
+  if(!isPlaying)return;isPlaying=false;
+  oscNodes.forEach(function(n){try{n.gain.gain.exponentialRampToValueAtTime(.001,audioCtx.currentTime+.5);n.osc.stop(audioCtx.currentTime+.55)}catch(e){}});
+  oscNodes=[];
+}
+
+/* ── START OVERLAY ── */
+document.getElementById('startBtn').addEventListener('click',function(){
+  var ov=document.getElementById('overlay');
+  ov.style.transition='opacity .8s';ov.style.opacity='0';
+  setTimeout(function(){ov.style.display='none'},800);
+  document.getElementById('audioToggle').style.display='block';
+  startAudio();
+  showInfo('&#x1F64F; &#x09B8;&#x09CD;&#x09AC;&#x09BE;&#x0997;&#x09A4;&#x09AE;! Welcome to Durga Puja VR','WASD to walk &middot; Mouse to look &middot; Click objects to interact &middot; Enter VR for full immersion!');
+});
+
+/* ── AUDIO TOGGLE ── */
+document.getElementById('audioToggle').addEventListener('click',function(){
+  if(isPlaying){stopAudio();this.textContent='&#x1F507; Music Off'}
+  else{startAudio();this.textContent='&#x1F3B5; Toggle Music'}
+});
+
+/* ── VR EVENTS ── */
+var sc=document.getElementById('scene');
+sc.addEventListener('enter-vr',function(){document.getElementById('vr-hud').setAttribute('visible',true);document.getElementById('audioToggle').style.display='none';startAudio()});
+sc.addEventListener('exit-vr',function(){document.getElementById('vr-hud').setAttribute('visible',false);document.getElementById('audioToggle').style.display='block'});
+
+/* ── DHAK CLICK ── */
+document.getElementById('dhak-area').addEventListener('click',function(){
+  initCtx();var t=audioCtx.currentTime;
+  [0,.18,.32,.46,.64,.78,.9,1.02,1.12,1.24,1.34,1.44].forEach(function(s){
+    var o=audioCtx.createOscillator(),g=audioCtx.createGain();
+    o.type='square';o.frequency.value=68+Math.random()*28;
+    g.gain.setValueAtTime(.38,t+s);g.gain.exponentialRampToValueAtTime(.001,t+s+.18);
+    o.connect(g);g.connect(masterGain||audioCtx.destination);o.start(t+s);o.stop(t+s+.2);
+  });
+  showInfo('&#x1FA98; Dhak Beat!','The thunderous dhak fills the air &#x2014; &#x099C;&#x09AF;&#x09BC; &#x09AE;&#x09BE; &#x09A6;&#x09C1;&#x09B0;&#x09CD;&#x0997;&#x09BE;!');
+});
+
+/* ── PROCEDURAL STARS + PETALS ── */
+sc.addEventListener('loaded',function(){
+  // Stars
+  for(var i=0;i<180;i++){
+    var s=document.createElement('a-sphere');
+    var theta=Math.random()*Math.PI*2,phi=Math.random()*Math.PI*.44,r=168;
+    var x=r*Math.sin(phi)*Math.cos(theta),y=r*Math.cos(phi)+35,z=r*Math.sin(phi)*Math.sin(theta);
+    s.setAttribute('position',x+' '+y+' '+z);
+    s.setAttribute('radius',(.08+Math.random()*.22).toFixed(2));
+    s.setAttribute('segments-width','3');s.setAttribute('segments-height','3');
+    s.setAttribute('material','color:#ffffff;emissive:#ffffff;emissiveIntensity:'+(.55+Math.random()*.45).toFixed(2));
+    sc.appendChild(s);
+  }
+  // Marigold petals on path
+  [[1,18],[-2,16],[0,20],[2,20],[-1,25],[1,26],[0,14],[-2,28],[2,30],[0,22],[-1,12],[3,18]].forEach(function(p){
+    var pe=document.createElement('a-circle');
+    pe.setAttribute('position',p[0]+' .02 '+p[1]);
+    pe.setAttribute('rotation','-90 '+(Math.random()*360)+' 0');
+    pe.setAttribute('radius',(.07+Math.random()*.08).toFixed(2));
+    pe.setAttribute('material','color:#f39c12;opacity:.82;transparent:true;roughness:.9');
+    sc.appendChild(pe);
+  });
+});
+</script>
+</body>
+</html>
+
+
+
+
+
